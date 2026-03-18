@@ -2,4 +2,4 @@ image: openjdk-15-buster
 
 test:
   script:
-  - ./run.sh
+    - ./run.sh

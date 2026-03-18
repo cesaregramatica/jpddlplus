@@ -35,17 +35,20 @@ public class MinusUnary extends Expression {
 
     Expression element;
 
-    public MinusUnary ( ) {
+    public MinusUnary() {
         super();
     }
 
-    public MinusUnary (Expression expr) {
+    public MinusUnary(Expression expr) {
         super();
         element = expr;
     }
 
     @Override
-    public Expression ground (Map<Variable, PDDLObject> substitution, PDDLObjects po) {
+    public Expression ground(
+        Map<Variable, PDDLObject> substitution,
+        PDDLObjects po
+    ) {
         MinusUnary ret = new MinusUnary();
 
         ret.element = element.ground(substitution, po);
@@ -54,7 +57,7 @@ public class MinusUnary extends Expression {
     }
 
     @Override
-    public Expression unGround (Map substitution) {
+    public Expression unGround(Map substitution) {
         MinusUnary ret = new MinusUnary();
 
         ret.element = element.unGround(substitution);
@@ -63,75 +66,72 @@ public class MinusUnary extends Expression {
     }
 
     @Override
-    public double eval (State s) {
+    public double eval(State s) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public ExtendedNormExpression normalize ( ) {
-        throw new UnsupportedOperationException("Not supported yet.");
-    }
-
-
-
-    @Override
-    public Expression weakEval (PDDLProblem s, Set invF) {
+    public ExtendedNormExpression normalize() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public Expression clone ( ) {
+    public Expression weakEval(PDDLProblem s, Set invF) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public HomeMadeRealInterval eval (RelState s) {
+    public Expression clone() {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public boolean involve (Collection<NumFluent> arrayList) {
+    public HomeMadeRealInterval eval(RelState s) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public Expression subst (Condition numeric) {
+    public boolean involve(Collection<NumFluent> arrayList) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public Set getInvolvedNumericFluents ( ) {
+    public Expression subst(Condition numeric) {
+        throw new UnsupportedOperationException("Not supported yet.");
+    }
+
+    @Override
+    public Set getInvolvedNumericFluents() {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean isUngroundVersionOf (Expression expr) {
+    public boolean isUngroundVersionOf(Expression expr) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public Expression susbtFluentsWithTheirInvariants (int j) {
-        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-    }
-
-
-    @Override
-    public String toSmtVariableString (int i) {
+    public Expression susbtFluentsWithTheirInvariants(int j) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public boolean involve (NumFluent a) {
+    public String toSmtVariableString(int i) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 
     @Override
-    public void pddlPrint (boolean typeInformation, StringBuilder bui) {
+    public boolean involve(NumFluent a) {
+        throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
+    }
+
+    @Override
+    public void pddlPrint(boolean typeInformation, StringBuilder bui) {
         throw new UnsupportedOperationException("Not supported yet.");
     }
 
     @Override
-    public Expression unifyVariablesReferences (PDDLProblem p) {
+    public Expression unifyVariablesReferences(PDDLProblem p) {
         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
     }
 }

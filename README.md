@@ -1,4 +1,3 @@
-
 # What is this library about?
 
 This repository contains the JPDDLPLUS API, which is a planning manager library meant to build systems that speak the PDDL language. It supports many features that go way beyond classical planning, such as numeric representations, linear and non-linear constraints, autonomout processes, events, global constraints and other things. This is an evolution of the PPMAJAL Library, now deprecated.
@@ -21,13 +20,11 @@ M Ramirez, E Scala, P Haslum, S Thiebaux, **Numerical Integration and Dynamic Di
 
 Some of the planners built on top of JPDDLPLUS have be made public into the following bitbucket repositories:
 
-*The SMT Planner* can be downloaded from [here](https://bitbucket.org/enricode/springroll-smt-hybrid-planner)
+_The SMT Planner_ can be downloaded from [here](https://bitbucket.org/enricode/springroll-smt-hybrid-planner)
 
-*The ENHSP Planner* can be downloaded from [here](https://gitlab.com/enricos83/ENHSP-Public/-/tree/enhsp-20?ref_type=heads)
-
+_The ENHSP Planner_ can be downloaded from [here](https://gitlab.com/enricos83/ENHSP-Public/-/tree/enhsp-20?ref_type=heads)
 
 ## Dependencies
-
 
 The library depends on a number of libs, some for the PDDL parsing, other for some standard algorithm on graphs, and some to interface the API with lp solvers. All such libraries are in the jar_dependencies folder. Have a look inside to get an understanding on the dependencies.
 
@@ -35,7 +32,6 @@ The library depends on a number of libs, some for the PDDL parsing, other for so
 
 In order to compile, just execute the command "compile" from shell. This will produce a jar file, jpddlplus.jar which can be both used as a library or as a standlone program (see below).
 The other way is to use an IDE such as intelliJIdea.
-
 
 ## Already in the box: a clone of the ENHSP planner
 

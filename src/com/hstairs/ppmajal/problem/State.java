@@ -29,35 +29,34 @@ public abstract class State {
 
     private Iterable<Object> applicableActions;
 
-    public State ( ) {
+    public State() {
         super();
     }
 
-    public abstract void apply (TransitionGround gr, State prev);
+    public abstract void apply(TransitionGround gr, State prev);
 
-    public abstract boolean satisfy (final Condition input);
+    public abstract boolean satisfy(final Condition input);
 
     @Override
-    public abstract State clone ( );
+    public abstract State clone();
 
-    public boolean isSafeState ( ) {
+    public boolean isSafeState() {
         return true;
     }
 
-    public Iterable<Object> getApplicableActions ( ) {
+    public Iterable<Object> getApplicableActions() {
         return applicableActions;
     }
 
-    public void setApplicableActions (Iterable<Object> applicableActions) {
+    public void setApplicableActions(Iterable<Object> applicableActions) {
         this.applicableActions = applicableActions;
     }
 
-    public State getRepresentative ( ) {
+    public State getRepresentative() {
         return this;
     }
 
     public abstract List getNumFluents();
 
     public abstract int getBoolFluentsSize();
-
 }

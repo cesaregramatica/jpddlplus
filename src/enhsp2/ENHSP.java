@@ -1,8 +1,9 @@
 package enhsp2;
 
-
 import com.hstairs.ppmajal.PDDLProblem.*;
 import com.hstairs.ppmajal.domain.PDDLDomain;
+import com.hstairs.ppmajal.extraUtils.IExternalLogger;
+import com.hstairs.ppmajal.extraUtils.PlannerExitException;
 import com.hstairs.ppmajal.extraUtils.Utils;
 import com.hstairs.ppmajal.extraUtils.PlannerExitException;
 import com.hstairs.ppmajal.pddl.heuristics.PDDLHeuristic;
@@ -11,13 +12,8 @@ import com.hstairs.ppmajal.pddl.heuristics.novelty.IntervalQuantifiedBothHeurist
 import com.hstairs.ppmajal.search.SearchHeuristic;
 import com.hstairs.ppmajal.transition.Sdac;
 import com.hstairs.ppmajal.transition.TransitionGround;
-import com.hstairs.enhsp2.SimpleExternalLogger;
-import com.hstairs.ppmajal.extraUtils.IExternalLogger;
 import com.hstairs.ppmajal.transition.TransitionSchema;
-import org.apache.commons.cli.*;
-import org.apache.commons.lang3.tuple.ImmutablePair;
-import org.apache.commons.lang3.tuple.Pair;
-
+import enhsp2.SimpleExternalLogger;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.io.PrintStream;
@@ -29,6 +25,9 @@ import java.util.LinkedList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import org.apache.commons.cli.*;
+import org.apache.commons.lang3.tuple.ImmutablePair;
+import org.apache.commons.lang3.tuple.Pair;
 
 /*
  * Copyright (C) 2016-2017 Enrico Scala. Email enricos83@gmail.com.
@@ -97,6 +96,47 @@ public class ENHSP {
     private Integer k_nov;
     private int linearEffectsAbstraction = -1;
 
+    private static final String MODELING_HELP =
+        "Modeling quick guide (PDDL)\n" +
+        "---------------------------\n" +
+        "Domain file (-o): describe the planning language of your task.\n" +
+        "- :requirements used by the model\n" +
+        "- :types (optional but recommended)\n" +
+        "- :predicates for boolean facts\n" +
+        "- :functions for numeric fluents\n" +
+        "- :action / :process / :event with parameters, preconditions, effects\n" +
+        "\n" +
+        "Problem file (-f): describe one concrete instance of that domain.\n" +
+        "- (:domain NAME) must match the domain\n" +
+        "- :objects (the instance objects)\n" +
+        "- :init (initial facts and numeric values)\n" +
+        "- :goal (target conditions)\n" +
+        "- :metric (optional optimization objective)\n" +
+        "\n" +
+        "Rule of thumb: put reusable dynamics in DOMAIN, put instance data in PROBLEM.\n";
+
+    String domainFile;
+    String problemFile;
+    String searchEngineString;
+    String wh;
+    String heuristic = "aibr";
+    String gw;
+    boolean savingSearchSpaceJson = false;
+    String deltaExecution;
+    float depthLimit;
+    String savePlan;
+    boolean printTrace;
+    String tieBreaking;
+    String planner;
+    String deltaHeuristic;
+    String deltaPlanning;
+    String deltaValidation;
+    boolean helpfulActions;
+    Integer numSubdomains;
+    private String novelty;
+    private Integer k_nov;
+    private int linearEffectsAbstraction = -1;
+
     private PDDLProblem problem;
     private boolean pddlPlus;
     private PDDLDomain domain;
@@ -142,24 +182,40 @@ public class ENHSP {
         return planLength;
     }
 
-
-    public String[][] getAvailableSearchEngines(){
+    public String[][] getAvailableSearchEngines() {
         return (PDDLPlanner.getAvailableSearchEngines());
     }
 
-    public ArrayList<String> getAvailableTieBreakers(){
+    public ArrayList<String> getAvailableTieBreakers() {
         return new ArrayList<>(PDDLPlanner.getAvailableTieBreakers());
     }
 
-    public Pair<PDDLDomain, PDDLProblem> parseDomainProblem(String domainFile, String problemFile, String delta, PrintStream out) {
+    public Pair<PDDLDomain, PDDLProblem> parseDomainProblem(
+        String domainFile,
+        String problemFile,
+        String delta,
+        PrintStream out
+    ) {
         try {
             final PDDLDomain localDomain = new PDDLDomain(domainFile);
             //domain.substituteEqualityConditions();
-            pddlPlus = !localDomain.getProcessesSchema().isEmpty() || !localDomain.getEventsSchema().isEmpty();
+            pddlPlus =
+                !localDomain.getProcessesSchema().isEmpty() ||
+                !localDomain.getEventsSchema().isEmpty();
 
             out.println("Domain parsed");
-            final PDDLProblem localProblem = new PDDLProblem(problemFile, localDomain.getConstants(),
-                    localDomain.getTypes(), localDomain, out, groundingType, sdac, ignoreMetric,new BigDecimal(deltaPlanning),new BigDecimal(deltaExecution));
+            final PDDLProblem localProblem = new PDDLProblem(
+                problemFile,
+                localDomain.getConstants(),
+                localDomain.getTypes(),
+                localDomain,
+                out,
+                groundingType,
+                sdac,
+                ignoreMetric,
+                new BigDecimal(deltaPlanning),
+                new BigDecimal(deltaExecution)
+            );
             if (!localDomain.getProcessesSchema().isEmpty()) {
                 localProblem.setDeltaTimeVariable(delta);
             }
@@ -169,20 +225,26 @@ public class ENHSP {
             out.println("Problem parsed");
             out.println("Grounding..");
 
-            if (!localProblem.prepareForSearch(aibrPreprocessing, stopAfterGrounding)) {
+            if (
+                !localProblem.prepareForSearch(
+                    aibrPreprocessing,
+                    stopAfterGrounding
+                )
+            ) {
                 return null;
             }
 
-
-            
-            if (printActions){
+            if (printActions) {
                 System.out.println(localProblem.getTransitions());
             }
-            if (printAllInfo){
+            if (printAllInfo) {
                 localProblem.printAllInfo();
             }
             if (stopAfterGrounding) {
-                throw new PlannerExitException(1, "Stopped after grounding as requested (-stopgro).");
+                throw new PlannerExitException(
+                    1,
+                    "Stopped after grounding as requested (-stopgro)."
+                );
             }
             return Pair.of(localDomain, localProblem);
         } catch (PlannerExitException ex) {
@@ -196,15 +258,27 @@ public class ENHSP {
     public boolean parsingDomainAndProblem(String[] args) {
         try {
             overallStart = System.currentTimeMillis();
-            Pair<PDDLDomain, PDDLProblem> res = parseDomainProblem(domainFile, problemFile, deltaExecution, System.out);
-            if (res == null)
-                return false;
+            Pair<PDDLDomain, PDDLProblem> res = parseDomainProblem(
+                domainFile,
+                problemFile,
+                deltaExecution,
+                System.out
+            );
+            if (res == null) return false;
             domain = res.getKey();
             problem = res.getRight();
             if (pddlPlus) {
                 System.out.println("Heuristic Problem Creation");
-                res = parseDomainProblem(domainFile, problemFile, deltaHeuristic, new PrintStream(new OutputStream() {
-                    public void write(int b) {}}));
+                res = parseDomainProblem(
+                    domainFile,
+                    problemFile,
+                    deltaHeuristic,
+                    new PrintStream(
+                        new OutputStream() {
+                            public void write(int b) {}
+                        }
+                    )
+                );
                 domainHeuristic = res.getKey();
                 heuristicProblem = res.getRight();
                 copyOfTheProblem = true;
@@ -226,42 +300,68 @@ public class ENHSP {
         }
     }
 
-    public record AnytimeConfigurations (String search, String heuristic, Boolean ha, String wh) {}
+    public record AnytimeConfigurations(
+        String search,
+        String heuristic,
+        Boolean ha,
+        String wh
+    ) {}
+
     LinkedList<AnytimeConfigurations> conf = new LinkedList();
 
     public PDDLSolution planAndGetSolution() {
         try {
             printStats();
             setHeuristic();
-            final long deadline = timeOut == Long.MAX_VALUE ? Long.MAX_VALUE : (overallStart + timeOut);
+            final long deadline =
+                timeOut == Long.MAX_VALUE
+                    ? Long.MAX_VALUE
+                    : (overallStart + timeOut);
             PDDLSolution bestSolution = null;
-            if (autoAnytime){
+            if (autoAnytime) {
                 System.out.println("Auto Anytime Modality");
-                conf.add(new AnytimeConfigurations("lazygbfs","hmrp", true, "4"));
-                conf.add(new AnytimeConfigurations("lazywastar","hmrp", false, "8"));
-                conf.add(new AnytimeConfigurations("lazywastar","hmrp", false, "4"));
-                conf.add(new AnytimeConfigurations("lazywastar","hmrp", false, "2"));
-                conf.add(new AnytimeConfigurations("lazywastar","hmrp", false, "1"));
-                conf.add(new AnytimeConfigurations("wastar","hmrp", false, "1"));
-
+                conf.add(
+                    new AnytimeConfigurations("lazygbfs", "hmrp", true, "4")
+                );
+                conf.add(
+                    new AnytimeConfigurations("lazywastar", "hmrp", false, "8")
+                );
+                conf.add(
+                    new AnytimeConfigurations("lazywastar", "hmrp", false, "4")
+                );
+                conf.add(
+                    new AnytimeConfigurations("lazywastar", "hmrp", false, "2")
+                );
+                conf.add(
+                    new AnytimeConfigurations("lazywastar", "hmrp", false, "1")
+                );
+                conf.add(
+                    new AnytimeConfigurations("wastar", "hmrp", false, "1")
+                );
             }
             int i = 0;
             PDDLSolution lastSol;
             do {
-                if (deadline != Long.MAX_VALUE && System.currentTimeMillis() >= deadline) {
+                if (
+                    deadline != Long.MAX_VALUE &&
+                    System.currentTimeMillis() >= deadline
+                ) {
                     System.out.println("Timeout reached.");
                     return bestSolution;
                 }
-                if (autoAnytime){
-                    if ( conf.size() > i ) {
-                        AnytimeConfigurations anytimeConfigurations = conf.get(i);
+                if (autoAnytime) {
+                    if (conf.size() > i) {
+                        AnytimeConfigurations anytimeConfigurations = conf.get(
+                            i
+                        );
                         searchEngineString = anytimeConfigurations.search;
                         heuristic = anytimeConfigurations.heuristic;
                         helpfulActions = anytimeConfigurations.ha;
                         wh = anytimeConfigurations.wh;
                     }
                 }
-                long remainingSearchTime = deadline == Long.MAX_VALUE
+                long remainingSearchTime =
+                    deadline == Long.MAX_VALUE
                         ? Long.MAX_VALUE
                         : Math.max(1L, deadline - System.currentTimeMillis());
                 lastSol = search(remainingSearchTime);
@@ -270,17 +370,35 @@ public class ENHSP {
                 }
                 LinkedList sp = lastSol.rawPlan();
                 if (printTrace) {
-                    String fileName = getProblem().getPddlFileReference() + "_search_" + searchEngineString + "_h_" + heuristic + "_break_ties_" + tieBreaking + ".npt";
-                    problem.validate(sp,new BigDecimal(this.deltaExecution), new BigDecimal(deltaExecution), fileName);
-                    System.out.println("Numeric Plan Trace saved to " + fileName);
+                    String fileName =
+                        getProblem().getPddlFileReference() +
+                        "_search_" +
+                        searchEngineString +
+                        "_h_" +
+                        heuristic +
+                        "_break_ties_" +
+                        tieBreaking +
+                        ".npt";
+                    problem.validate(
+                        sp,
+                        new BigDecimal(this.deltaExecution),
+                        new BigDecimal(deltaExecution),
+                        fileName
+                    );
+                    System.out.println(
+                        "Numeric Plan Trace saved to " + fileName
+                    );
                 }
                 if (sp == null) {
                     return bestSolution;
-                }else {
+                } else {
                     bestSolution = lastSol;
                     depthLimit = endGValue;
                     if (anyTime) {
-                        System.out.println("NEW COST ==================================================================================>" + depthLimit);
+                        System.out.println(
+                            "NEW COST ==================================================================================>" +
+                                depthLimit
+                        );
                     }
                     sp = null;
                     System.gc();
@@ -302,62 +420,216 @@ public class ENHSP {
         planAndGetSolution();
     }
 
-    private Options buildOptions(){
+    private Options buildOptions() {
         Options options = new Options();
-        options.addRequiredOption("o", "domain", true, "PDDL domain file (operators, predicates/functions, transition model)");
-        options.addRequiredOption("f", "problem", true, "PDDL problem file (objects, initial state, goals, optional metric)");
+        options.addRequiredOption(
+            "o",
+            "domain",
+            true,
+            "PDDL domain file (operators, predicates/functions, transition model)"
+        );
+        options.addRequiredOption(
+            "f",
+            "problem",
+            true,
+            "PDDL problem file (objects, initial state, goals, optional metric)"
+        );
         options.addOption("help", false, "Show help and modeling instructions");
-        options.addOption("planner", true, "Fast Preconfgured Planner. This overrides all other parameters but domain and problem specs.\n" + Planner.getHelp() + "\n");
-        options.addOption("h", true, "allows to select heuristic (default is hadd). " + PDDLHeuristic.getHelpString() + "\n");
-        options.addOption("s", true, "allows to select search strategy (default is WAStar):\n" + PDDLPlanner.getHelpString() + "\n");
-        options.addOption("nov", true, "heuristic novelty: options:\n"
-                + "aqb, Atom Quantified Both novelty heuristic\n"
-                + "aw, Atom Width novelty heuristic\n"
-                + "iqb, Interval Quantified Both novelty heuristic\n"
-                + "iw, Interval Width novelty heuristic" );
+        options.addOption(
+            "planner",
+            true,
+            "Fast Preconfgured Planner. This overrides all other parameters but domain and problem specs.\n" +
+                Planner.getHelp() +
+                "\n"
+        );
+        options.addOption(
+            "h",
+            true,
+            "allows to select heuristic (default is hadd). " +
+                PDDLHeuristic.getHelpString() +
+                "\n"
+        );
+        options.addOption(
+            "s",
+            true,
+            "allows to select search strategy (default is WAStar):\n" +
+                PDDLPlanner.getHelpString() +
+                "\n"
+        );
+        options.addOption(
+            "nov",
+            true,
+            "heuristic novelty: options:\n" +
+                "aqb, Atom Quantified Both novelty heuristic\n" +
+                "aw, Atom Width novelty heuristic\n" +
+                "iqb, Interval Quantified Both novelty heuristic\n" +
+                "iw, Interval Width novelty heuristic"
+        );
         options.addOption("knov", true, "novelty k parameter, 1 or 2");
-        options.addOption("ties", true, "tie-breaking (default is arbitrary): larger_g, smaller_g, arbitrary");
-        options.addOption("dp", "delta_planning", true, "planning decision executionDelta: float");
-        options.addOption("de", "delta_execution", true, "planning execution executionDelta: float");
-        options.addOption("dh", "delta_heuristic", true, "planning heuristic executionDelta: float");
-        options.addOption("dv", "delta_validation", true, "validation executionDelta: float");
-        options.addOption("d", "delta", true, "Override other delta_<planning,execuction,validation,heuristic> configurations: float");
+        options.addOption(
+            "ties",
+            true,
+            "tie-breaking (default is arbitrary): larger_g, smaller_g, arbitrary"
+        );
+        options.addOption(
+            "dp",
+            "delta_planning",
+            true,
+            "planning decision executionDelta: float"
+        );
+        options.addOption(
+            "de",
+            "delta_execution",
+            true,
+            "planning execution executionDelta: float"
+        );
+        options.addOption(
+            "dh",
+            "delta_heuristic",
+            true,
+            "planning heuristic executionDelta: float"
+        );
+        options.addOption(
+            "dv",
+            "delta_validation",
+            true,
+            "validation executionDelta: float"
+        );
+        options.addOption(
+            "d",
+            "delta",
+            true,
+            "Override other delta_<planning,execuction,validation,heuristic> configurations: float"
+        );
         options.addOption("epsilon", true, "epsilon separation: float");
         options.addOption("wh", true, "h-values weight: float");
-        options.addOption("sjr", false, "save state space explored in json file");
-        options.addOption("ha", "helpful-actions", true, "activate helpful actions in the search");
-        options.addOption("pe", "print-events-plan", false, "activate printing of events");
-        options.addOption("ht", "helpful-transitions", true, "activate up-to-macro actions");
+        options.addOption(
+            "sjr",
+            false,
+            "save state space explored in json file"
+        );
+        options.addOption(
+            "ha",
+            "helpful-actions",
+            true,
+            "activate helpful actions in the search"
+        );
+        options.addOption(
+            "pe",
+            "print-events-plan",
+            false,
+            "activate printing of events"
+        );
+        options.addOption(
+            "ht",
+            "helpful-transitions",
+            true,
+            "activate up-to-macro actions"
+        );
         options.addOption("sp", true, "Save plan. Argument is filename");
         options.addOption("pt", false, "print state trajectory (Experimental)");
         options.addOption("im", false, "Ignore Metric in the heuristic");
         options.addOption("dap", false, "Disable Aibr Preprocessing");
-        options.addOption("red", "redundant_constraints", true, "Choose mechanism for redundant constraints generation among, "
-                + "no, brute and smart. No redundant constraints generation is the default");
-        options.addOption("gro", "grounding", true, "Activate grounding via internal mechanism, fd or metricff or internal or naive (default is internal)");
-        options.addOption("dl", true, "bound on plan-cost: float (Experimental)");
-        options.addOption("k", true, "maximal number of subdomains. This works in combination with haddabs: integer");
-        options.addOption("anytime", false, "Run in anytime modality. Incrementally tries to find a lower bound. Does not stop until the user decides so");
-        options.addOption("timeout", true, "Overall planning timeout (seconds).");
+        options.addOption(
+            "red",
+            "redundant_constraints",
+            true,
+            "Choose mechanism for redundant constraints generation among, " +
+                "no, brute and smart. No redundant constraints generation is the default"
+        );
+        options.addOption(
+            "gro",
+            "grounding",
+            true,
+            "Activate grounding via internal mechanism, fd or metricff or internal or naive (default is internal)"
+        );
+        options.addOption(
+            "dl",
+            true,
+            "bound on plan-cost: float (Experimental)"
+        );
+        options.addOption(
+            "k",
+            true,
+            "maximal number of subdomains. This works in combination with haddabs: integer"
+        );
+        options.addOption(
+            "anytime",
+            false,
+            "Run in anytime modality. Incrementally tries to find a lower bound. Does not stop until the user decides so"
+        );
+        options.addOption(
+            "timeout",
+            true,
+            "Overall planning timeout (seconds)."
+        );
         options.addOption("stopgro", false, "Stop After Grounding");
         options.addOption("ival", false, "Internal Validation");
-        options.addOption("sdac", true, "Activate State Dependent Action Cost (Very Experimental!). Options are: disabled, rhs, condition");
-        options.addOption("onlyplan",false,"Print only the plan without waiting");
-        options.addOption("print_actions",false,"Print all actions after grounding");
-        options.addOption("tolerance",true,"Numeric tolerance in evaluating numeric conditions. Default is 0.00001");
-        options.addOption("inputplan",true,"Insert the name of the file containing the plan to validate. This is to be used with ival activated");
-        options.addOption("silent",false,"Activate silent modality");
-        options.addOption("autoanytime",false,"Activate auto anytime modality. ");
-        options.addOption("uch",false,"Pretend all actions cost one in the heuristic");
-        options.addOption("with_posthoc_logger", true, "Activate the posthoc file logger. A filename must be provided as argument");
-        options.addOption("npm",false,"PDDL+ feature: Do not print makespan in the plan");
-        options.addOption("pai",false,"Print all info before search");
-        options.addOption("ea",true,"Effect abstraction mode for non-constants effects. " +
-                "Takes integer as an argument, denoting the number of intervals to consider");
+        options.addOption(
+            "sdac",
+            true,
+            "Activate State Dependent Action Cost (Very Experimental!). Options are: disabled, rhs, condition"
+        );
+        options.addOption(
+            "onlyplan",
+            false,
+            "Print only the plan without waiting"
+        );
+        options.addOption(
+            "print_actions",
+            false,
+            "Print all actions after grounding"
+        );
+        options.addOption(
+            "tolerance",
+            true,
+            "Numeric tolerance in evaluating numeric conditions. Default is 0.00001"
+        );
+        options.addOption(
+            "inputplan",
+            true,
+            "Insert the name of the file containing the plan to validate. This is to be used with ival activated"
+        );
+        options.addOption("silent", false, "Activate silent modality");
+        options.addOption(
+            "autoanytime",
+            false,
+            "Activate auto anytime modality. "
+        );
+        options.addOption(
+            "uch",
+            false,
+            "Pretend all actions cost one in the heuristic"
+        );
+        options.addOption(
+            "with_posthoc_logger",
+            true,
+            "Activate the posthoc file logger. A filename must be provided as argument"
+        );
+        options.addOption(
+            "npm",
+            false,
+            "PDDL+ feature: Do not print makespan in the plan"
+        );
+        options.addOption("pai", false, "Print all info before search");
+        options.addOption(
+            "ea",
+            true,
+            "Effect abstraction mode for non-constants effects. " +
+                "Takes integer as an argument, denoting the number of intervals to consider"
+        );
         options.addOption("aibr_debug", false, "Enable AIBR debug logging");
         options.addOption("pls", false, "Print the very last state");
-        options.addOption("bbqs", false, "Use Bucket Based Priority Queue in the search if applicable");
-        options.addOption("tun", false, "(Experimental) Use tunnelling  during search");
+        options.addOption(
+            "bbqs",
+            false,
+            "Use Bucket Based Priority Queue in the search if applicable"
+        );
+        options.addOption(
+            "tun",
+            false,
+            "(Experimental) Use tunnelling  during search"
+        );
 
         return options;
     }
@@ -365,7 +637,9 @@ public class ENHSP {
     public void parseInput(String[] args) {
         Options options = buildOptions();
         for (String arg : args) {
-            if ("--help".equals(arg) || "-help".equals(arg) || "-?".equals(arg)) {
+            if (
+                "--help".equals(arg) || "-help".equals(arg) || "-?".equals(arg)
+            ) {
                 printHelp(options);
                 throw new PlannerExitException(0, "Help requested.");
             }
@@ -380,16 +654,15 @@ public class ENHSP {
             heuristic = cmd.getOptionValue("h");
             novelty = cmd.getOptionValue("nov");
             String optionValue = cmd.getOptionValue("knov");
-            if(optionValue != null) {
+            if (optionValue != null) {
                 k_nov = Integer.parseInt(optionValue);
-            }
-            else k_nov = 2;
+            } else k_nov = 2;
             optionValue = cmd.getOptionValue("tolerance");
-            if (optionValue != null){
+            if (optionValue != null) {
                 System.out.println(optionValue);
                 Utils.tolerance = Double.parseDouble(optionValue);
             }
-            
+
             if (heuristic == null) {
                 heuristic = "hadd";
             }
@@ -418,13 +691,12 @@ public class ENHSP {
             pls = cmd.hasOption("pls");
             String ea = cmd.getOptionValue("ea");
             if (ea != null) {
-                if (ea.equals("all")){
+                if (ea.equals("all")) {
                     linearEffectsAbstraction = Integer.MAX_VALUE;
                 } else {
                     linearEffectsAbstraction = Integer.parseInt(ea);
                 }
             }
-
 
             internalValidation = cmd.hasOption("ival");
             this.unitCostHeuristic = cmd.hasOption("uch");
@@ -462,7 +734,7 @@ public class ENHSP {
                 deltaPlanning = delta;
                 deltaExecution = delta;
             }
-            
+
             inputPlan = cmd.getOptionValue("inputplan");
 
             String k = cmd.getOptionValue("k");
@@ -474,29 +746,34 @@ public class ENHSP {
 
             wh = cmd.getOptionValue("wh");
             savingSearchSpaceJson = cmd.hasOption("sjr");
-            if (cmd.hasOption("silent")){
-                out = new PrintStream(new OutputStream() {
-                    @Override
-                    public void write(int b) throws IOException {
+            if (cmd.hasOption("silent")) {
+                out = new PrintStream(
+                    new OutputStream() {
+                        @Override
+                        public void write(int b) throws IOException {}
                     }
-                });
-            }else{
+                );
+            } else {
                 out = System.out;
             }
 
             String sdacValue = cmd.getOptionValue("sdac");
-            if (sdacValue == null || sdacValue.equals("disabled")){
+            if (sdacValue == null || sdacValue.equals("disabled")) {
                 sdac = Sdac.disabled;
-            }else if (sdacValue.equals("rhs")){
+            } else if (sdacValue.equals("rhs")) {
                 sdac = Sdac.byRHS;
-            }else if (sdacValue.equals("condition")){
+            } else if (sdacValue.equals("condition")) {
                 sdac = Sdac.byCondition;
-            }else{
-                new UnsupportedOperationException("Sdac value can be one of the followings:" +
-                        "disables, rhs, condition");
+            } else {
+                new UnsupportedOperationException(
+                    "Sdac value can be one of the followings:" +
+                        "disables, rhs, condition"
+                );
             }
             printMakespan = !cmd.hasOption("npm");
-            helpfulActions = cmd.getOptionValue("ha") != null && "true".equals(cmd.getOptionValue("ha"));
+            helpfulActions =
+                cmd.getOptionValue("ha") != null &&
+                "true".equals(cmd.getOptionValue("ha"));
             autoAnytime = cmd.hasOption("autoanytime");
 
             printEvents = cmd.hasOption("pe");
@@ -507,24 +784,29 @@ public class ENHSP {
             anyTime = cmd.hasOption("anytime");
             aibrPreprocessing = !cmd.hasOption("dap");
             stopAfterGrounding = cmd.hasOption("stopgro");
-            helpfulTransitions = cmd.getOptionValue("ht") != null && "true".equals(cmd.getOptionValue("ht"));
+            helpfulTransitions =
+                cmd.getOptionValue("ht") != null &&
+                "true".equals(cmd.getOptionValue("ht"));
             ignoreMetric = cmd.hasOption("im");
             printActions = cmd.hasOption("print_actions");
 
             String filePath = cmd.getOptionValue("with_posthoc_logger");
-            if(filePath != null) {
+            if (filePath != null) {
                 externalLogger = new PosthocFileLogger(filePath);
             }
             printAllInfo = cmd.hasOption("pai");
             aibrDebug = cmd.hasOption("aibr-debug");
             bucketBasedQueueSearch = cmd.hasOption("bbqs");
             tunnelling = cmd.hasOption("tun");
-
         } catch (ParseException exp) {
-//            Logger.getLogger(ENHSP.class.getName()).log(Level.SEVERE, null, ex);
+            //            Logger.getLogger(ENHSP.class.getName()).log(Level.SEVERE, null, ex);
             System.err.println("Parsing failed.  Reason: " + exp.getMessage());
             printHelp(options);
-            throw new PlannerExitException(-1, "Failed to parse command-line options.", exp);
+            throw new PlannerExitException(
+                -1,
+                "Failed to parse command-line options.",
+                exp
+            );
         }
     }
 
@@ -543,15 +825,19 @@ public class ENHSP {
     }
 
     public void printStats() {
-//        System.out.println("Grounding and Simplification finished");
+        //        System.out.println("Grounding and Simplification finished");
         System.out.println("|A|:" + getProblem().getActions().size());
         System.out.println("|P|:" + getProblem().getProcessesSet().size());
         System.out.println("|E|:" + getProblem().getEventsSet().size());
         if (pddlPlus) {
             System.out.println("Delta time heuristic model:" + deltaHeuristic);
             System.out.println("Delta time planning model:" + deltaPlanning);
-            System.out.println("Delta time search-execution model:" + deltaExecution);
-            System.out.println("Delta time validation model:" + deltaValidation);
+            System.out.println(
+                "Delta time search-execution model:" + deltaExecution
+            );
+            System.out.println(
+                "Delta time validation model:" + deltaValidation
+            );
         }
     }
 
@@ -561,7 +847,8 @@ public class ENHSP {
             chosen = Planner.valueOf(planner.toUpperCase().replace("-", "_"));
         } catch (IllegalArgumentException e) {
             System.out.println(
-                    "! ====== ! Warning: Unknown planner configuration. Going with default: sat-hmrp ! ====== !");
+                "! ====== ! Warning: Unknown planner configuration. Going with default: sat-hmrp ! ====== !"
+            );
             chosen = Planner.SAT_HMRP;
         }
 
@@ -577,50 +864,99 @@ public class ENHSP {
     }
 
     private void setHeuristic() {
-        if(novelty!=null){
+        if (novelty != null) {
             SearchHeuristic h_temp;
-            h_temp = PDDLHeuristic.getHeuristic(heuristic, heuristicProblem, redundantConstraints, helpfulActions, helpfulTransitions,
-                    unitCostHeuristic, linearEffectsAbstraction, false);
-            h = PDDLNovelyHeuristic.getNoveltyHeuristic(novelty, heuristicProblem, k_nov, h_temp);
-        }
-        else {
-            h = PDDLHeuristic.getHeuristic(heuristic, heuristicProblem, redundantConstraints, helpfulActions, helpfulTransitions,
-                    unitCostHeuristic || ignoreMetric, linearEffectsAbstraction, aibrDebug);
+            h_temp = PDDLHeuristic.getHeuristic(
+                heuristic,
+                heuristicProblem,
+                redundantConstraints,
+                helpfulActions,
+                helpfulTransitions,
+                unitCostHeuristic,
+                linearEffectsAbstraction,
+                false
+            );
+            h = PDDLNovelyHeuristic.getNoveltyHeuristic(
+                novelty,
+                heuristicProblem,
+                k_nov,
+                h_temp
+            );
+        } else {
+            h = PDDLHeuristic.getHeuristic(
+                heuristic,
+                heuristicProblem,
+                redundantConstraints,
+                helpfulActions,
+                helpfulTransitions,
+                unitCostHeuristic || ignoreMetric,
+                linearEffectsAbstraction,
+                aibrDebug
+            );
         }
     }
 
     private PDDLSolution search(long timeoutMs) throws Exception {
-        PDDLPlanner planner = new PDDLPlanner(searchEngineString,
-                redundantConstraints,
-                helpfulActions,
-                helpfulTransitions,
-                wh != null ? Float.parseFloat(this.wh) : (float) 1.0,
-                deltaPlanning != null ? new BigDecimal(deltaPlanning) : new BigDecimal(1.0),
-                deltaExecution != null ? new BigDecimal(deltaExecution) : new BigDecimal(1.0),
-                tieBreaking == null ? "arbitrary": tieBreaking, savingSearchSpaceJson, depthLimit == -1 ? Float.POSITIVE_INFINITY : depthLimit,
-                bucketBasedQueueSearch, tunnelling, this.externalLogger, timeoutMs);
+        PDDLPlanner planner = new PDDLPlanner(
+            searchEngineString,
+            redundantConstraints,
+            helpfulActions,
+            helpfulTransitions,
+            wh != null ? Float.parseFloat(this.wh) : (float) 1.0,
+            deltaPlanning != null
+                ? new BigDecimal(deltaPlanning)
+                : new BigDecimal(1.0),
+            deltaExecution != null
+                ? new BigDecimal(deltaExecution)
+                : new BigDecimal(1.0),
+            tieBreaking == null ? "arbitrary" : tieBreaking,
+            savingSearchSpaceJson,
+            depthLimit == -1 ? Float.POSITIVE_INFINITY : depthLimit,
+            bucketBasedQueueSearch,
+            tunnelling,
+            this.externalLogger,
+            timeoutMs
+        );
 
         if (savingSearchSpaceJson) {
-            Runtime.getRuntime().addShutdownHook(new Thread() {//this is to save json also when the planner is interrupted
-                @Override
-                public void run() {
-                        planner.getSearchSpaceHandle().printJson(
-                                getProblem().getPddlFileReference() + ".sp_log");
+            Runtime.getRuntime().addShutdownHook(
+                new Thread() {
+                    //this is to save json also when the planner is interrupted
+                    @Override
+                    public void run() {
+                        planner
+                            .getSearchSpaceHandle()
+                            .printJson(
+                                getProblem().getPddlFileReference() + ".sp_log"
+                            );
+                    }
                 }
-            });
+            );
         }
         overallStart = System.currentTimeMillis();
         PDDLSolution plan = planner.plan(problem, h);
         overallPlanningTime = (System.currentTimeMillis() - overallStart);
         endGValue = plan.gValueAtTheEnd();
-        printInfo(plan,pddlPlus,savePlan,plan.rawPlan() == null ? null : plan.lastState());
+        printInfo(
+            plan,
+            pddlPlus,
+            savePlan,
+            plan.rawPlan() == null ? null : plan.lastState()
+        );
         if (savingSearchSpaceJson) {
-            planner.getSearchSpaceHandle().printJson(getProblem().getPddlFileReference() + ".sp_log");
+            planner
+                .getSearchSpaceHandle()
+                .printJson(getProblem().getPddlFileReference() + ".sp_log");
         }
         return plan;
     }
 
-    private void printInfo(PDDLSolution plan, boolean pddlPlus, String savePlan, PDDLState lastState) {
+    private void printInfo(
+        PDDLSolution plan,
+        boolean pddlPlus,
+        String savePlan,
+        PDDLState lastState
+    ) {
         if (plan.rawPlan() != null) {
             System.out.println("Problem Solved\n");
             System.out.println("Found Plan:");
@@ -635,31 +971,40 @@ public class ENHSP {
         }
         System.out.println("Metric (Search):" + plan.gValueAtTheEnd());
         System.out.println("Planning Time (msec): " + overallPlanningTime);
-        System.out.println("Heuristic Time (msec): " + plan.stats().heuristicTime());
+        System.out.println(
+            "Heuristic Time (msec): " + plan.stats().heuristicTime()
+        );
         System.out.println("Search Time (msec): " + plan.stats().searchTime());
         System.out.println("Expanded Nodes:" + plan.stats().nodesExpanded());
         System.out.println("States Evaluated:" + plan.stats().nodesEvaluated());
-        System.out.println("Number of Dead-Ends detected:" + plan.stats().deadEnds());
-        System.out.println("Number of Duplicates detected:" + plan.stats().duplicates());
-        if (pls){
+        System.out.println(
+            "Number of Dead-Ends detected:" + plan.stats().deadEnds()
+        );
+        System.out.println(
+            "Number of Duplicates detected:" + plan.stats().duplicates()
+        );
+        if (pls) {
             System.out.println(lastState);
         }
-
     }
 
-
-    private void printPlan(LinkedList<ImmutablePair<BigDecimal, TransitionGround>> plan, boolean temporal, PDDLState par, String fileName) {
+    private void printPlan(
+        LinkedList<ImmutablePair<BigDecimal, TransitionGround>> plan,
+        boolean temporal,
+        PDDLState par,
+        String fileName
+    ) {
         float i = 0f;
         ImmutablePair<BigDecimal, TransitionGround> previous = null;
         List<String> fileContent = new ArrayList();
         boolean startProcess = false;
         int size = plan.size();
-        int  j = 0;
+        int j = 0;
         for (ImmutablePair<BigDecimal, TransitionGround> ele : plan) {
             j++;
             if (!temporal) {
                 System.out.print(i + ": " + ele.getRight() + "\n");
-                if (fileName != null){
+                if (fileName != null) {
                     TransitionGround t = (TransitionGround) ele.getRight();
                     fileContent.add(t.toString());
                 }
@@ -672,26 +1017,51 @@ public class ENHSP {
                         startProcess = true;
                     }
                     if (j == size) {
-                        if (!onlyPlan){
-                            System.out.println(previous.getLeft() + ": -----waiting---- " + "[" + par.time + "]");
+                        if (!onlyPlan) {
+                            System.out.println(
+                                previous.getLeft() +
+                                    ": -----waiting---- " +
+                                    "[" +
+                                    par.time +
+                                    "]"
+                            );
                         }
                     }
                 } else {
-                    if (t.getSemantics() != TransitionGround.Semantics.EVENT || printEvents) {
+                    if (
+                        t.getSemantics() != TransitionGround.Semantics.EVENT ||
+                        printEvents
+                    ) {
                         if (startProcess) {
                             startProcess = false;
-                            if (!onlyPlan){
-                                System.out.println(previous.getLeft() + ": -----waiting---- " + "[" + ele.getLeft() + "]");
+                            if (!onlyPlan) {
+                                System.out.println(
+                                    previous.getLeft() +
+                                        ": -----waiting---- " +
+                                        "[" +
+                                        ele.getLeft() +
+                                        "]"
+                                );
                             }
                         }
-                        System.out.print(ele.getLeft() + ": " + ele.getRight() + "\n");
+                        System.out.print(
+                            ele.getLeft() + ": " + ele.getRight() + "\n"
+                        );
                         if (fileName != null) {
-                            fileContent.add(ele.getLeft() + ": "+ t.toString());
+                            fileContent.add(
+                                ele.getLeft() + ": " + t.toString()
+                            );
                         }
                     } else {
                         if (j == size) {
-                            if (!onlyPlan){
-                                System.out.println(previous.getLeft() + ": -----waiting---- " + "[" + ele.getLeft() + "]");
+                            if (!onlyPlan) {
+                                System.out.println(
+                                    previous.getLeft() +
+                                        ": -----waiting---- " +
+                                        "[" +
+                                        ele.getLeft() +
+                                        "]"
+                                );
                             }
                         }
                     }
@@ -701,16 +1071,19 @@ public class ENHSP {
 
         if (fileName != null) {
             try {
-                if (temporal){
-                    if (printMakespan)
-                        fileContent.add(par.time+": @PlanEND ");
+                if (temporal) {
+                    if (printMakespan) fileContent.add(
+                        par.time + ": @PlanEND "
+                    );
                 }
                 Files.write(Path.of(fileName), fileContent);
-
             } catch (IOException ex) {
-                Logger.getLogger(ENHSP.class.getName()).log(Level.SEVERE, null, ex);
+                Logger.getLogger(ENHSP.class.getName()).log(
+                    Level.SEVERE,
+                    null,
+                    ex
+                );
             }
         }
     }
-
 }

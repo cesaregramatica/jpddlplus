@@ -1,4 +1,4 @@
-package enhsp2;/*
+package enhsp2; /*
  * Copyright (C) 2015-2017, Enrico Scala, contact: enricos83@gmail.com
  *
  * This library is free software; you can redistribute it and/or
@@ -17,9 +17,11 @@ package enhsp2;/*
  * MA 02110-1301  USA
  */
 
+import com.hstairs.ppmajal.extraUtils.PlannerExitException;
 import enhsp2.ENHSP;
 import com.hstairs.ppmajal.extraUtils.PlannerExitException;
 public class main {
+
     public static void main(String[] args) throws Exception {
         try {
             ENHSP p = new ENHSP(false);
@@ -30,6 +32,5 @@ public class main {
         } catch (PlannerExitException ex) {
             System.exit(ex.exitCode());
         }
-
     }
 }
