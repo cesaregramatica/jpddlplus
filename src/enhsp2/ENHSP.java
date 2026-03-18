@@ -4,8 +4,8 @@ import com.hstairs.ppmajal.PDDLProblem.*;
 import com.hstairs.ppmajal.domain.PDDLDomain;
 import com.hstairs.ppmajal.extraUtils.IExternalLogger;
 import com.hstairs.ppmajal.extraUtils.PlannerExitException;
-import com.hstairs.ppmajal.extraUtils.Utils;
 import com.hstairs.ppmajal.extraUtils.PlannerExitException;
+import com.hstairs.ppmajal.extraUtils.Utils;
 import com.hstairs.ppmajal.pddl.heuristics.PDDLHeuristic;
 import com.hstairs.ppmajal.pddl.heuristics.PDDLNovelyHeuristic;
 import com.hstairs.ppmajal.pddl.heuristics.novelty.IntervalQuantifiedBothHeuristic;
@@ -55,46 +55,6 @@ import org.apache.commons.lang3.tuple.Pair;
  *
  */
 public class ENHSP {
-    private static final String MODELING_HELP =
-            "Modeling quick guide (PDDL)\n" +
-            "---------------------------\n" +
-            "Domain file (-o): describe the planning language of your task.\n" +
-            "- :requirements used by the model\n" +
-            "- :types (optional but recommended)\n" +
-            "- :predicates for boolean facts\n" +
-            "- :functions for numeric fluents\n" +
-            "- :action / :process / :event with parameters, preconditions, effects\n" +
-            "\n" +
-            "Problem file (-f): describe one concrete instance of that domain.\n" +
-            "- (:domain NAME) must match the domain\n" +
-            "- :objects (the instance objects)\n" +
-            "- :init (initial facts and numeric values)\n" +
-            "- :goal (target conditions)\n" +
-            "- :metric (optional optimization objective)\n" +
-            "\n" +
-            "Rule of thumb: put reusable dynamics in DOMAIN, put instance data in PROBLEM.\n";
-
-    String domainFile;
-    String problemFile;
-    String searchEngineString;
-    String wh;
-    String heuristic = "aibr";
-    String gw;
-    boolean savingSearchSpaceJson = false;
-    String deltaExecution;
-    float depthLimit;
-    String savePlan;
-    boolean printTrace;
-    String tieBreaking;
-    String planner;
-    String deltaHeuristic;
-    String deltaPlanning;
-    String deltaValidation;
-    boolean helpfulActions;
-    Integer numSubdomains;
-    private String novelty;
-    private Integer k_nov;
-    private int linearEffectsAbstraction = -1;
 
     private static final String MODELING_HELP =
         "Modeling quick guide (PDDL)\n" +
