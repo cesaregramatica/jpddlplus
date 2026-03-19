@@ -11,3 +11,7 @@
 .zed/
 .vscode
 project/
+*.csv
+*.py
+*.pdf
+*.jar
