@@ -47,18 +47,20 @@ public class DAG {
         get1.add(a);
 
         //check
-        HashSet closed = new HashSet();
-        Queue<String> queue = new LinkedList();
-        queue.add(root);
+        HashSet<String> closed = new HashSet<>();
+        Queue<String> queue = new LinkedList<>();
+        queue.add(b);
         while (!queue.isEmpty()) {
             String element = queue.poll();
-            if (closed.contains(element)) {
+            if (element.equals(a)) {
+                get.remove(b);
+                get1.remove(a);
                 throw new RuntimeException("There is a cycle in the graph");
             }
-            closed.add(element);
-            //            System.out.println(edges);
-            for (var e : edges.get(element)) {
-                queue.add(e);
+            if (closed.add(element)) {
+                for (String e : edges.get(element)) {
+                    queue.add(e);
+                }
             }
         }
     }
@@ -82,7 +84,8 @@ public class DAG {
     }
 
     public List<String> topologicalSort() {
-        // 1. Calcola l'in-degree di ogni nodo
+        // Sorting algoritm based on Kahn's algorithm
+
         Map<String, Integer> inDegree = new HashMap<>();
         for (String v : vertexes) {
             inDegree.put(v, 0);
@@ -93,7 +96,6 @@ public class DAG {
             }
         }
 
-        // 2. Inizializza la coda con i nodi senza predecessori
         Queue<String> queue = new LinkedList<>();
         for (String v : vertexes) {
             if (inDegree.get(v) == 0) {
@@ -101,7 +103,6 @@ public class DAG {
             }
         }
 
-        // 3. Processa la coda
         List<String> sorted = new ArrayList<>();
         while (!queue.isEmpty()) {
             String current = queue.poll();
@@ -114,7 +115,6 @@ public class DAG {
             }
         }
 
-        // 4. Verifica assenza di cicli
         if (sorted.size() != vertexes.size()) {
             throw new RuntimeException(
                 "Cycle detected in DAG during topological sort"

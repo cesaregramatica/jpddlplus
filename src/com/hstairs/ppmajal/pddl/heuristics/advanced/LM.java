@@ -82,7 +82,10 @@ public class LM extends H1 {
     public float computeEstimate(State s) {
         if ("lmCount".equals(mode)) {
             resetAndExpand(s);
-            return countMissing();
+            return countMissing(false);
+        } else if ("lmCount-filtered".equals(mode)) {
+            resetAndExpand(s);
+            return countMissing(true);
         } else if ("lp".equals(mode)) {
             return lpSolver.solve(s, getLandmarks(s));
         } else if ("onld-local".equals(mode)) {
@@ -93,22 +96,39 @@ public class LM extends H1 {
         return 0f;
     }
 
-    public IntOpenHashSet getLmC(int conditionId) {
-        return lmC[conditionId];
-    }
-
     private float computeONLD(State s, boolean useFullHadd) {
         resetAndExpand(s);
         IntOpenHashSet goalLandmarks = lmA[cp.goal()];
         if (goalLandmarks == null || goalLandmarks.isEmpty()) return 0f;
 
+        // If any goal landmark has no reachable achievers, the state is a dead-end for ONLD.
+
+        for (int lmId : goalLandmarks) {
+            if (
+                getReachableAchievers()[lmId] == null ||
+                getReachableAchievers()[lmId].isEmpty()
+            ) {
+                return Float.MAX_VALUE;
+            }
+        }
+
         List<Integer> ordered = buildAndSortLandmarkDAG(goalLandmarks);
+
+        // If any landmark has no reachable achievers, remove it from the ordered list.
+
+        ordered.removeIf(
+            lmId ->
+                getReachableAchievers()[lmId] == null ||
+                getReachableAchievers()[lmId].isEmpty()
+        );
 
         State synthetic = s.clone();
         float total = 0f;
 
+        // For each landmark, compute the cost to reach it.
+
         for (int lmId : ordered) {
-            if (getConditionInit()[lmId]) continue;
+            if (synthetic.satisfy(Terminal.getTerminal(lmId))) continue;
 
             float stepCost;
             if (useFullHadd) {
@@ -136,7 +156,7 @@ public class LM extends H1 {
         }
 
         for (int i : goalLandmarks) {
-            IntOpenHashSet preds = getLmC(i);
+            IntOpenHashSet preds = lmC[i];
             if (preds == null) continue;
             for (int j : preds) {
                 if (goalLandmarks.contains(j)) {
@@ -151,6 +171,8 @@ public class LM extends H1 {
 
         List<String> sortedStrings = dag.topologicalSort();
 
+        // Return the sorted list as Integer for optimization.
+
         List<Integer> result = new ArrayList<>();
         for (String st : sortedStrings) {
             result.add(Integer.parseInt(st));
@@ -161,14 +183,50 @@ public class LM extends H1 {
     private void applyLandmarkToState(int lmId, State synthetic) {
         PDDLState s = (PDDLState) synthetic;
         Terminal t = Terminal.getTerminal(lmId);
+
+        // If the landmark is number.
         if (t instanceof Comparison) {
             Comparison comp = (Comparison) t;
-            for (NumFluent nf : comp.getLeft().getInvolvedNumericFluents()) {
-                double currentVal = nf.eval(synthetic);
-                double threshold = comp.getLeft().eval(synthetic) * -1;
-                s.setNumFluent(nf, currentVal + threshold + 0.001);
+
+            Collection<NumFluent> fluents = comp
+                .getLeft()
+                .getInvolvedNumericFluents();
+
+            if (!fluents.isEmpty()) {
+                double baseEval = comp.getLeft().eval(synthetic);
+                double threshold = baseEval * -1;
+
+                if (threshold >= 0) {
+                    List<NumFluent> positiveFluents = new ArrayList<>();
+
+                    // Find positive fluents: fluents whose evaluation increases after incrementing.
+
+                    for (NumFluent fluent : fluents) {
+                        double originalVal = fluent.eval(synthetic);
+                        s.setNumFluent(fluent, originalVal + 1.0);
+                        double newEval = comp.getLeft().eval(synthetic);
+                        s.setNumFluent(fluent, originalVal);
+                        if (newEval > baseEval) {
+                            positiveFluents.add(fluent);
+                        }
+                    }
+
+                    // If there are positive fluents, adjust their values to increase the base val.
+                    // The adjustment is done by incrementing each positive fluent by a small delta.
+
+                    if (!positiveFluents.isEmpty()) {
+                        double delta =
+                            (threshold + 0.001) / positiveFluents.size();
+                        for (NumFluent positiveFluent : positiveFluents) {
+                            double currentVal = positiveFluent.eval(synthetic);
+                            s.setNumFluent(positiveFluent, currentVal + delta);
+                        }
+                    }
+                }
             }
-        } else if (t instanceof BoolPredicate) {
+        }
+        // If the landmark is bool.
+        else if (t instanceof BoolPredicate) {
             BoolPredicate bp = (BoolPredicate) t;
             s.setPropFluent(bp, true);
         }
@@ -177,12 +235,15 @@ public class LM extends H1 {
     private float localCostEstimate(int lmId, State synthetic) {
         Terminal t = Terminal.getTerminal(lmId);
 
+        // If the landmark is number.
         if (t instanceof Comparison) {
             Comparison comp = (Comparison) t;
             double gap = -1.0 * comp.getLeft().eval(synthetic);
             if (gap <= 0) return 0f;
 
             float bestCost = Float.MAX_VALUE;
+
+            // Compute local cost: the minimum cost to reach the landmark from any achiever.
 
             for (int a : getReachableAchievers()[lmId]) {
                 double contribution = getNumericContribution(a, lmId);
@@ -193,8 +254,13 @@ public class LM extends H1 {
                 bestCost = Math.min(bestCost, cost);
             }
             return bestCost;
-        } else if (t instanceof BoolPredicate) {
+        }
+        // If the landmark is bool.
+        else if (t instanceof BoolPredicate) {
             float bestCost = Float.MAX_VALUE;
+
+            // Compute local cost: the minimum cost to reach the landmark from any achiever.
+
             for (int a : getReachableAchievers()[lmId]) {
                 bestCost = Math.min(bestCost, cp.actionCost()[a]);
             }
@@ -209,11 +275,15 @@ public class LM extends H1 {
 
         while (!h.isEmpty()) {
             int actionId = (int) h.removeMin().getData();
+
             if (actionId == cp.goal()) break;
+
             closed[actionId] = true;
+
             if (actionId != cp.goal()) {
                 expand(actionId, h, synthetic);
             }
+
             if (getConditionCost()[lmId] < Float.MAX_VALUE) break;
         }
 
@@ -361,10 +431,19 @@ public class LM extends H1 {
         return q;
     }
 
-    private int countMissing() {
+    private int countMissing(boolean filterUnreachable) {
         int lmCount = 0;
         for (int lm : lmA[cp.goal()]) {
             if (!getConditionInit()[lm]) {
+                if (filterUnreachable) {
+                    // If the landmark is unreachable, skip it
+                    if (
+                        getReachableAchievers()[lm] == null ||
+                        getReachableAchievers()[lm].isEmpty()
+                    ) {
+                        continue;
+                    }
+                }
                 lmCount++;
             }
         }

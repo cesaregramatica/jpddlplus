@@ -1,0 +1,11 @@
+Domain,Instance,Heuristic,Plan_Length,Search_Time_ms,Expanded_Nodes,Max_RAM_MB
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_1_1229.pddl,onld-local,23,21,24,63.82
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_1_1229.pddl,onld-hadd,23,29,24,70.77
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_2_1229.pddl,onld-local,112,535,29833,451.51
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_2_1229.pddl,onld-hadd,125,5893,428381,1085.21
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_3_1229.pddl,onld-local,118,2471,245029,706.26
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_3_1229.pddl,onld-hadd,202,48574,2918539,2469.12
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_4_1229.pddl,onld-local,266,18425,1571355,1934.99
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_4_1229.pddl,onld-hadd,253,146417,5770102,1727.91
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_5_1229.pddl,onld-local,248,4661,331100,1101.91
+examples/pddl2_1/sailing/domain.pddl,examples/pddl2_1/sailing/small_instances/instance_1_5_1229.pddl,onld-hadd,240,93634,3597288,2053.63

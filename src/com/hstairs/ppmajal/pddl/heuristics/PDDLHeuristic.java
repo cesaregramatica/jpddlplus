@@ -277,6 +277,13 @@ public class PDDLHeuristic {
                 return new Aibr(heuristicProblem, false, aibrDebugging);
             case "hlm-count":
                 return new LM(heuristicProblem);
+            case "hlm-count-filtered":
+                return new LM(
+                    heuristicProblem,
+                    "lmCount-filtered",
+                    redundantConstraints,
+                    "cplex"
+                );
             case "hlm-lp":
                 return new LM(
                     heuristicProblem,
@@ -414,6 +421,11 @@ public class PDDLHeuristic {
                 "hlm-count",
                 "HLMCount",
                 "Landmark-count heuristic estimating distance by number of unsatisfied landmarks."
+            ),
+            new HeuristicInfo(
+                "hlm-count-filtered",
+                "HLMCountFiltered",
+                "Landmark-count heuristic estimating distance by number of unsatisfied reachable landmarks."
             ),
             new HeuristicInfo(
                 "hlm-lp",

@@ -1,0 +1,16 @@
+Instance,Heuristic,Plan_Length,Search_Time_ms,Expanded_Nodes,Max_RAM_MB
+8,onld-local,34,106,228,112.7
+8,onld-hadd,57,289,783,168.07
+8,hadd,30,65,117,60.93
+8,hmax,38,274,2719,150.75
+8,hlm-count,42,1151,37286,665.29
+12,onld-local,75,549,2365,410.1
+12,onld-hadd,T/O,T/O,T/O,1580.88
+12,hadd,76,335,2437,121.13
+12,hmax,T/O,T/O,T/O,1250.12
+12,hlm-count,T/O,T/O,T/O,3011.86
+16,onld-local,150,4580,25741,2029.64
+16,onld-hadd,T/O,T/O,T/O,1297.23
+16,hadd,137,6549,49330,923.82
+16,hmax,T/O,T/O,T/O,1007.66
+16,hlm-count,T/O,T/O,T/O,3136.22
