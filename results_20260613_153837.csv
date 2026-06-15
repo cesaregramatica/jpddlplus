@@ -1,0 +1,4 @@
+Domain,Instance,Heuristic,Plan_Length,Search_Time_ms,Expanded_Nodes,Max_RAM_MB,h_initial,States_Evaluated,Heuristic_Time_ms
+examples/pddl2_1/counters/domain.pddl,examples/pddl2_1/counters/instance_12.pddl,onld-local,71,292,1121,328.42,65.0,17732,251
+examples/pddl2_1/counters/domain.pddl,examples/pddl2_1/counters/instance_12.pddl,onld-hadd,71,385,1121,403.22,56.045,17732,341
+examples/pddl2_1/counters/domain.pddl,examples/pddl2_1/counters/instance_12.pddl,hlm-count,T/O,T/O,T/O,21026.51,11.0,T/O,T/O

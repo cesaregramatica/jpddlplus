@@ -2,16 +2,17 @@ import argparse
 import csv
 import os
 import re
+import shutil
 import signal
 import subprocess
 import threading
 import time
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 import psutil
 
-heuristics = ["onld-local", "onld-hadd", "hlm-count-filtered"]
-timeout_sec = 600
+timeout_sec = 300
 
 
 def find_problems(base_dir):
@@ -37,10 +38,15 @@ def find_problems(base_dir):
     return sorted(problems)
 
 
-def run_experiment(domain_file, instance_file, h):
+def run_experiment(domain_file, instance_file, h, jvm_xmx="20g"):
+    java_bin = (
+        "java"
+        if shutil.which("java")
+        else "/usr/lib/jvm/java-21-amazon-corretto/bin/java"
+    )
     cmd = [
-        "java",
-        "-Xmx20g",
+        java_bin,
+        f"-Xmx{jvm_xmx}",
         "-jar",
         "enhsp25.jar",
         "-o",
@@ -53,6 +59,7 @@ def run_experiment(domain_file, instance_file, h):
         str(timeout_sec),
     ]
     plan_length, time_ms, exp_nodes, max_ram_mb = "T/O", "T/O", "T/O", "T/O"
+    h_initial, states_eval, heuristic_time = "T/O", "T/O", "T/O"
     try:
         proc = subprocess.Popen(
             cmd,
@@ -105,13 +112,24 @@ def run_experiment(domain_file, instance_file, h):
         m_len = re.search(r"Plan-Length:(\d+)", out)
         m_time = re.search(r"Search Time \(msec\): (\d+)", out)
         m_exp = re.search(r"Expanded Nodes:(\d+)", out)
+        m_h_init = re.search(r"h\(I\):(\S+)", out)
+        m_states_eval = re.search(r"States Evaluated:(\d+)", out)
+        m_h_time = re.search(r"Heuristic Time \(msec\): (\d+)", out)
+
         if m_len:
             plan_length = m_len.group(1)
         if m_time:
             time_ms = m_time.group(1)
         if m_exp:
             exp_nodes = m_exp.group(1)
-        if "Problem Solved" not in out and plan_length == "T/O":
+        if m_h_init:
+            h_initial = m_h_init.group(1)
+        if m_states_eval:
+            states_eval = m_states_eval.group(1)
+        if m_h_time:
+            heuristic_time = m_h_time.group(1)
+
+        if "Problem Solved" not in out:
             if "OutOfMemoryError" in err or "OutOfMemoryError" in out:
                 plan_length, time_ms, exp_nodes, max_ram_mb = (
                     "OOM",
@@ -119,12 +137,15 @@ def run_experiment(domain_file, instance_file, h):
                     "OOM",
                     max_ram_mb,
                 )
+                h_initial, states_eval, heuristic_time = "OOM", "OOM", "OOM"
             elif plan_length == "T/O":
                 pass
             else:
                 plan_length, time_ms, exp_nodes = "Fail", "Fail", "Fail"
+                h_initial, states_eval, heuristic_time = "Fail", "Fail", "Fail"
     except Exception as e:
         plan_length, time_ms, exp_nodes, max_ram_mb = "Error", "Error", "Error", "Error"
+        h_initial, states_eval, heuristic_time = "Error", "Error", "Error"
 
     return {
         "Domain": domain_file,
@@ -134,6 +155,9 @@ def run_experiment(domain_file, instance_file, h):
         "Search_Time_ms": time_ms,
         "Expanded_Nodes": exp_nodes,
         "Max_RAM_MB": max_ram_mb,
+        "h_initial": h_initial,
+        "States_Evaluated": states_eval,
+        "Heuristic_Time_ms": heuristic_time,
     }
 
 
@@ -144,6 +168,33 @@ if __name__ == "__main__":
         "--output",
         type=str,
         help="Output CSV filename (if not provided, timestamp will be added to 'results.csv')",
+    )
+    parser.add_argument(
+        "-j",
+        "--parallel",
+        type=int,
+        default=1,
+        help="Number of concurrent experiments to run (default: 1)",
+    )
+    parser.add_argument(
+        "--jvm-xmx",
+        type=str,
+        default="20g",
+        help="Maximum memory allocation pool for JVM (e.g. 6g, 20g; default: 20g)",
+    )
+    parser.add_argument(
+        "--heuristics",
+        type=str,
+        nargs="+",
+        default=[
+            "onld-local",
+            "onld-hadd",
+            "hlm-count",
+            "hlm-count-filtered",
+            "hadd",
+            "hmax",
+        ],
+        help="Heuristics to evaluate",
     )
     args = parser.parse_args()
 
@@ -156,11 +207,12 @@ if __name__ == "__main__":
         output_filename = f"results_{timestamp}.csv"
 
     print(
-        f"Running experiments... Results will be saved incrementally to: {output_filename}"
+        f"Running experiments (parallel={args.parallel}, jvm_xmx={args.jvm_xmx})... "
+        f"Results will be saved incrementally to: {output_filename}"
     )
 
     problems = find_problems("examples/pddl2_1")
-    total_runs = len(problems) * len(heuristics)
+    total_runs = len(problems) * len(args.heuristics)
     print(f"Found {len(problems)} instances. Total runs to execute: {total_runs}")
 
     fieldnames = [
@@ -171,6 +223,9 @@ if __name__ == "__main__":
         "Search_Time_ms",
         "Expanded_Nodes",
         "Max_RAM_MB",
+        "h_initial",
+        "States_Evaluated",
+        "Heuristic_Time_ms",
     ]
 
     # Initialize CSV file with header
@@ -178,20 +233,48 @@ if __name__ == "__main__":
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
 
-    current_run = 0
-    for domain_file, instance_file in problems:
-        for h in heuristics:
-            current_run += 1
+    completed_runs = 0
+    progress_lock = threading.Lock()
+    csv_lock = threading.Lock()
+
+    def worker(task):
+        global completed_runs
+        domain_file, instance_file, h = task
+
+        with progress_lock:
+            print(f"Starting {instance_file} with {h}...", flush=True)
+
+        result = run_experiment(domain_file, instance_file, h, jvm_xmx=args.jvm_xmx)
+
+        with progress_lock:
+            completed_runs += 1
+            status = (
+                "Solved"
+                if result["Plan_Length"] not in ["T/O", "OOM", "Fail", "Error"]
+                else result["Plan_Length"]
+            )
             print(
-                f"[{current_run}/{total_runs}] Running {instance_file} with {h}...",
+                f"[{completed_runs}/{total_runs}] Finished {instance_file} with {h} ({status}). "
+                f"Time: {result['Search_Time_ms']} ms, RAM: {result['Max_RAM_MB']} MB, "
+                f"h(I): {result['h_initial']}, States: {result['States_Evaluated']}, H_Time: {result['Heuristic_Time_ms']} ms",
                 flush=True,
             )
 
-            result = run_experiment(domain_file, instance_file, h)
-
-            # Write incrementally
+        with csv_lock:
             with open(output_filename, "a", newline="") as f:
                 writer = csv.DictWriter(f, fieldnames=fieldnames)
                 writer.writerow(result)
+
+    tasks = []
+    for domain_file, instance_file in problems:
+        for h in args.heuristics:
+            tasks.append((domain_file, instance_file, h))
+
+    if args.parallel > 1:
+        with ThreadPoolExecutor(max_workers=args.parallel) as executor:
+            executor.map(worker, tasks)
+    else:
+        for task in tasks:
+            worker(task)
 
     print(f"All experiments finished. Results saved to: {output_filename}")

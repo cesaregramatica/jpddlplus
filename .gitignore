@@ -13,3 +13,12 @@
 project/
 *.pdf
 *.jar
+
+docs/
+output_graphs/
+advanced_metrics_heuristics.csv
+latest_results_consolidated.csv
+advanced_metrics_ipc.csv
+advanced_metrics_coverage.csv
+advanced_metrics_par10.csv
+__pycache__/

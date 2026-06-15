@@ -126,8 +126,8 @@ public class LM extends H1 {
         float total = 0f;
 
         // For each landmark, compute the cost to reach it.
-
-        for (int lmId : ordered) {
+        for (int i = 0; i < ordered.size(); i++) {
+            int lmId = ordered.get(i);
             if (synthetic.satisfy(Terminal.getTerminal(lmId))) continue;
 
             float stepCost;
@@ -140,7 +140,25 @@ public class LM extends H1 {
             if (stepCost == Float.MAX_VALUE) return Float.MAX_VALUE;
             total += stepCost;
 
-            applyLandmarkToState(lmId, synthetic);
+            // Compute future fluents from remaining landmarks
+            java.util.Set<NumFluent> futureFluents = new java.util.HashSet<>();
+            for (int j = i + 1; j < ordered.size(); j++) {
+                Terminal futureTerm = Terminal.getTerminal(ordered.get(j));
+                if (futureTerm instanceof Comparison) {
+                    futureFluents.addAll(
+                        ((Comparison) futureTerm)
+                            .getLeft()
+                            .getInvolvedNumericFluents()
+                    );
+                    futureFluents.addAll(
+                        ((Comparison) futureTerm)
+                            .getRight()
+                            .getInvolvedNumericFluents()
+                    );
+                }
+            }
+
+            applyLandmarkToState(lmId, synthetic, futureFluents);
         }
 
         return total;
@@ -160,11 +178,7 @@ public class LM extends H1 {
             if (preds == null) continue;
             for (int j : preds) {
                 if (goalLandmarks.contains(j)) {
-                    try {
-                        dag.addEdge(String.valueOf(j), String.valueOf(i));
-                    } catch (RuntimeException e) {
-                        // skip
-                    }
+                    dag.addEdge(String.valueOf(j), String.valueOf(i));
                 }
             }
         }
@@ -180,7 +194,11 @@ public class LM extends H1 {
         return result;
     }
 
-    private void applyLandmarkToState(int lmId, State synthetic) {
+    private void applyLandmarkToState(
+        int lmId,
+        State synthetic,
+        java.util.Set<NumFluent> futureFluents
+    ) {
         PDDLState s = (PDDLState) synthetic;
         Terminal t = Terminal.getTerminal(lmId);
 
@@ -212,14 +230,25 @@ public class LM extends H1 {
                     }
 
                     // If there are positive fluents, adjust their values to increase the base val.
-                    // The adjustment is done by incrementing each positive fluent by a small delta.
-
                     if (!positiveFluents.isEmpty()) {
+                        List<NumFluent> priorityFluents = new ArrayList<>();
+                        for (NumFluent pf : positiveFluents) {
+                            if (futureFluents.contains(pf)) {
+                                priorityFluents.add(pf);
+                            }
+                        }
+
+                        // If no priority fluents exist, fallback to distributing across all positive fluents
+                        List<NumFluent> targetFluents =
+                            priorityFluents.isEmpty()
+                                ? positiveFluents
+                                : priorityFluents;
+
                         double delta =
-                            (threshold + 0.001) / positiveFluents.size();
-                        for (NumFluent positiveFluent : positiveFluents) {
-                            double currentVal = positiveFluent.eval(synthetic);
-                            s.setNumFluent(positiveFluent, currentVal + delta);
+                            (threshold + 0.001) / targetFluents.size();
+                        for (NumFluent targetFluent : targetFluents) {
+                            double currentVal = targetFluent.eval(synthetic);
+                            s.setNumFluent(targetFluent, currentVal + delta);
                         }
                     }
                 }
